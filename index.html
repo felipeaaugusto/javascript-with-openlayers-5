@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Draw Features</title>
+        <link rel="stylesheet" href="https://openlayers.org/en/v5.2.0/css/ol.css" type="text/css">
+        <!-- The line below is only needed for old environments like Internet Explorer and Android 4.x -->
+        <script src="https://cdn.polyfill.io/v2/polyfill.min.js?features=requestAnimationFrame,Element.prototype.classList,URL"></script>
+        <script src="https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.2.0/build/ol.js"></script>
+        <style>
+          body {
+              margin: 0;
+              overflow: hidden;
+          }
+          .map {
+              height: 100vh;
+              width: 100vw;
+          }
+          .panel {
+              position: absolute;
+              top: 0;
+              right: 0;
+              background: #fff;
+              padding: 10px;
+          }
+        </style>
+    </head>
+    <body>
+        <div id="map" class="map"></div>
+        <div class="panel">
+            <form class="form-inline">
+                <label>Geometry type &nbsp;</label>
+                <select id="type">
+                    <option value="None">None</option>
+                    <option value="Polygon">Polygon</option>
+                </select>
+                <button id="removeButton" type="button" style="display: none;">Excluir</button>
+            </form>
+        </div>
+        <script>
+        var collection = new ol.Collection();
+        
+        var sourceCollection = new ol.source.Vector({
+            features: collection,
+            crossOrigin: 'anonymous'
+        });
+
+        var vectorDraw = new ol.layer.Vector({
+            source: sourceCollection
+        });
+
+        var map = new ol.Map({
+            target: 'map',
+            layers: [
+                new ol.layer.Tile({
+                    source: new ol.source.OSM()
+                }),
+                vectorDraw
+            ],
+            view: new ol.View({
+                center: ol.proj.fromLonLat([37.41, 8.82]),
+                zoom: 4
+            })
+        });
+
+        var typeSelect = document.getElementById('type');
+        var removeButton = document.getElementById('removeButton');
+
+        var isDrawing = false;
+        var featureSelected;
+
+        var draw; // global so we can remove it later
+        function addInteraction() {
+            var value = typeSelect.value;
+            if (value !== 'None') {
+                draw = new ol.interaction.Draw({
+                    source: sourceCollection,
+                    type: typeSelect.value
+                });
+                map.addInteraction(draw);
+                draw.on('drawstart', function(evt) { 
+                    isDrawing = true;
+                });
+                draw.on('drawend', function(evt) { 
+                    isDrawing = false;
+                    map.removeInteraction(draw);
+                    document.getElementById("type").value = "None";
+                });
+            }
+        };
+      
+        function addClickInteraction(){
+            // outra forma de pegar event click no map
+            // map.on('click', function(e) {
+            //     map.forEachFeatureAtPixel(e.pixel, function (feature, layer) {
+            //       if(Boolean(!isDrawing)){
+            //         console.log('clicou')
+            //       }
+            //     });
+            // });
+            var selectClick = new ol.interaction.Select({
+                condition: ol.events.condition.click
+            });
+
+            selectClick.on('select', function(features) {
+                features.selected.forEach(function(feature) {
+                    if(Boolean(!isDrawing)){
+                        featureSelected = feature;
+                        removeButton.style.display = "inline-block";
+                    }
+                });
+                features.deselected.forEach(function(feature) {
+                    featureSelected = null;
+                    removeButton.style.display = "none";
+                });
+            });
+            map.addInteraction(selectClick);
+        };
+
+        /**
+         * Handle change event.
+         */
+        typeSelect.onchange = function() {
+            map.removeInteraction(draw);
+            addInteraction();
+        };
+
+        removeButton.onclick = function() {
+            if(featureSelected){
+                sourceCollection.removeFeature(featureSelected);
+            };
+        };
+
+        addInteraction();
+        addClickInteraction();
+      </script>
+    </body>
+</html>
